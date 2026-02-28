@@ -1,53 +1,96 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
-	"sync"
+	"os"
+	"time"
+
+	_ "github.com/lib/pq" // Driver สำหรับ Postgres
 )
 
-var (
-	urls = make(map[string]string)
-	mutex = &sync.Mutex{}
-)
+var db *sql.DB
 
 func main() {
-	//Root path to check if it's working 
-	http.HandleFunc("/", func(w http.ResponseWriter,r *http.Request){
-		fmt.Fprintf(w,"Welcome to your Secure Edge API!\n Use /shorten?Key=x&url=y to create a link.")
-	})
-	
 
-	//API to create a short link
-	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request){
-		url := r.URL.Query().Get("url")
-		key := r.URL.Query().Get("key")
-		if url == "" || key == "" {
-			http.Error(w, "Missing url or key", 400)
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("DB_HOST"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
+
+	var err error
+	for i := 0; i < 10; i++ {
+		db, err = sql.Open("postgres", dsn)
+		if err == nil && db.Ping() == nil {
+			break
+		}
+		log.Printf("⏳ Waiting for database... (%d/10)", i+1)
+		time.Sleep(2 * time.Second)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS urls (
+		short_key TEXT PRIMARY KEY,
+		original_url TEXT NOT NULL
+	)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// ใน main.go แก้ไขส่วนนี้
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			// ถ้าขอ /r/ หรือ /shorten จะไปเข้า Handler อื่นเอง
+			// แต่ถ้าขอมั่วๆ เช่น /abc ให้ส่ง 404 ของ Go ปกติ
+			http.NotFound(w, r)
 			return
 		}
-
-		mutex.Lock()
-		urls[key] = url
-		mutex.Unlock()
-		fmt.Fprintf(w,"Shortened! Your link is: /r/%s", key)
+		// ใช้เครื่องหมาย ./ เพื่อบอกว่าเอาไฟล์ที่อยู่ข้างๆ ตัว binary เลย
+		http.ServeFile(w, r, "./index.html")
 	})
 
-	//Redirect handler
-	http.HandleFunc("/r/", func(w http.ResponseWriter, r *http.Request){
-		key := r.URL.Path[len("/r/"):]
-		mutex.Lock()
-		target, ok := urls[key]
-		mutex.Unlock()
-		if !ok {
-			http.Error(w, "Short URL not found" , 404)
-			return
-		}
-		http.Redirect(w,r ,target, http.StatusFound)
-	})
-	
+	http.HandleFunc("/shorten", shortenHandler)
+	http.HandleFunc("/r/", redirectHandler)
 
-	fmt.Println("URL shortener APT started at :8080")
-	http.ListenAndServe(":8080", nil)
+	log.Println("URL shortener with DB started at :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
 
+func shortenHandler(w http.ResponseWriter, r *http.Request) {
+
+	mySecretKey := os.Getenv("API_KEY")
+	clientKey := r.Header.Get("X-API-Key")
+
+	if clientKey != mySecretKey {
+		http.Error(w, "🚫 Unauthorized: Wrong API Key", http.StatusUnauthorized)
+		return
+	}
+
+	key := r.URL.Query().Get("key")
+	url := r.URL.Query().Get("url")
+
+	if key == "" || url == "" {
+		http.Error(w, "Missing key or url", 400)
+		return
+	}
+
+	_, err := db.Exec("INSERT INTO urls (short_key, original_url) VALUES ($1, $2) ON CONFLICT (short_key) DO UPDATE SET original_url = $2", key, url)
+	if err != nil {
+		http.Error(w, "DB Error", 500)
+		return
+	}
+
+	fmt.Fprintf(w, "✅ Shortened! Your link is: /r/%s", key)
+}
+
+func redirectHandler(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Path[len("/r/"):]
+	var originalURL string
+
+	err := db.QueryRow("SELECT original_url FROM urls WHERE short_key = $1", key).Scan(&originalURL)
+	if err != nil {
+		http.Error(w, "Link not found", 404)
+		return
+	}
+
+	http.Redirect(w, r, originalURL, http.StatusFound)
 }

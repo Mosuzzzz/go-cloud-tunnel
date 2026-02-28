@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Edge URL Shortener</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center">
+    <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <h1 class="text-3xl font-bold mb-6 text-center text-blue-400">🔗 Edge Shortener</h1>
+        
+        <div class="space-y-4">
+            <input id="apiKey" type="password" placeholder="Enter API Key" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500">
+            <input id="customKey" type="text" placeholder="Custom Name (e.g. master)" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500">
+            <input id="longUrl" type="url" placeholder="Paste your long URL here" class="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500">
+            
+            <button onclick="shorten()" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition duration-200">Shorten Now! 🚀</button>
+        </div>
+
+        <div id="result" class="mt-6 p-4 rounded bg-gray-900 hidden border border-green-500">
+            <p class="text-sm text-gray-400">Your link is ready:</p>
+            <a id="shortLink" href="#" target="_blank" class="text-green-400 font-mono break-all hover:underline"></a>
+        </div>
+    </div>
+
+    <script>
+        async function shorten() {
+            const key = document.getElementById('apiKey').value;
+            const name = document.getElementById('customKey').value;
+            const url = document.getElementById('longUrl').value;
+            const resultDiv = document.getElementById('result');
+
+            const resp = await fetch(`/shorten?key=${name}&url=${encodeURIComponent(url)}`, {
+                headers: { 'X-API-Key': key }
+            });
+
+            if (resp.ok) {
+                const text = await resp.text();
+                const link = window.location.origin + '/r/' + name;
+                document.getElementById('shortLink').innerText = link;
+                document.getElementById('shortLink').href = link;
+                resultDiv.classList.remove('hidden');
+            } else {
+                alert('Error: Check your API Key or Inputs');
+            }
+        }
+    </script>
+</body>
+</html>
