@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: db  # ชื่อนี้ต้องตรงกับที่ Go App ใช้ต่อ (Host=db)
+  namespace: big-project
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+  namespace: big-project
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_USER
+          value: "user"
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        - name: POSTGRES_DB
+          value: "url_db"
+        ports:
+        - containerPort: 5432

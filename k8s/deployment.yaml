@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-app-deployment
+  namespace: big-project # รันในห้องที่เราเพิ่งสร้าง
+spec:
+  replicas: 2 # รันแอปพร้อมกัน 2 ก๊อปปี้
+  selector:
+    matchLabels:
+      app: go-app
+  template:
+    metadata:
+      labels:
+        app: go-app
+    spec:
+      containers:
+      - name: go-app
+        image: mosuthecreator/go-app:v1 # เปลี่ยนเป็น ID ของคุณ
+        workingDir: /app  # 👈 เพิ่มบรรทัดนี้เข้าไป (ต้องตรงกับ WORKDIR ใน Dockerfile)
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DB_HOST
+          value: "db" # ชื่อเดียวกับ Service ของ Postgres ข้างบน
+        - name: DB_USER
+          value: "user"
+        - name: DB_PASSWORD
+          value: "password"
+        - name: DB_NAME
+          value: "url_db"
+        - name: API_KEY
+          value: "bruh1234"

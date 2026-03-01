@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-app-service
+  namespace: big-project
+spec:
+  selector:
+    app: go-app # ⚠️ สำคัญ: ต้องตรงกับ label 'app' ใน deployment.yaml ของคุณเป๊ะๆ
+  ports:
+    - protocol: TCP
+      port: 80         # พอร์ตหน้าบ้าน (ที่เราจะ curl เข้าไป)
+      targetPort: 8080  # พอร์ตหลังบ้าน (ที่แอป Go ของคุณรันอยู่)
+  type: ClusterIP
