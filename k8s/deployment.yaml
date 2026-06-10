@@ -15,18 +15,29 @@ spec:
     spec:
       containers:
       - name: go-app
-        image: mosuthecreator/go-app:v1 # เปลี่ยนเป็น ID ของคุณ
-        workingDir: /app  # 👈 เพิ่มบรรทัดนี้เข้าไป (ต้องตรงกับ WORKDIR ใน Dockerfile)
+        image: mosuthecreator/go-app:v2 # เปลี่ยนเป็น ID ของคุณ
         ports:
         - containerPort: 8080
         env:
         - name: DB_HOST
-          value: "db" # ชื่อเดียวกับ Service ของ Postgres ข้างบน
+          value: "db" # ชื่อเดียวกับ Service ของ Postgres
         - name: DB_USER
-          value: "user"
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
         - name: DB_PASSWORD
-          value: "password"
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
         - name: DB_NAME
-          value: "url_db"
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_NAME
         - name: API_KEY
-          value: "bruh1234"
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: API_KEY

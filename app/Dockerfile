@@ -1,18 +1,16 @@
-# STATE 1: Build
-FROM golang:1.25-alpine AS builder  
+# STAGE 1: Build
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN go mod init url-shortener || true
-RUN go get github.com/lib/pq
 RUN go build -o main .
 
-# STATE 2: RUN
+# STAGE 2: Run
 FROM alpine:latest
-WORKDIR /root/
+WORKDIR /app
 COPY --from=builder /app/main .
 COPY --from=builder /app/index.html .
-
-RUN chmod +x main
 
 EXPOSE 8080
 CMD ["./main"]

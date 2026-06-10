@@ -10,6 +10,18 @@ spec:
     - protocol: TCP
       port: 5432
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: big-project
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,10 +42,27 @@ spec:
         image: postgres:15-alpine
         env:
         - name: POSTGRES_USER
-          value: "user"
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
         - name: POSTGRES_PASSWORD
-          value: "password"
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
         - name: POSTGRES_DB
-          value: "url_db"
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_NAME
         ports:
         - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+          subPath: pgdata # กัน error เรื่องโฟลเดอร์ lost+found ของ PVC
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc

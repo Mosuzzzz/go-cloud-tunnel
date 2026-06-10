@@ -21,11 +21,16 @@ func main() {
 	var err error
 	for i := 0; i < 10; i++ {
 		db, err = sql.Open("postgres", dsn)
-		if err == nil && db.Ping() == nil {
-			break
+		if err == nil {
+			if err = db.Ping(); err == nil {
+				break
+			}
 		}
 		log.Printf("⏳ Waiting for database... (%d/10)", i+1)
 		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		log.Fatalf("❌ Could not connect to database: %v", err)
 	}
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS urls (
@@ -58,6 +63,10 @@ func main() {
 func shortenHandler(w http.ResponseWriter, r *http.Request) {
 
 	mySecretKey := os.Getenv("API_KEY")
+	if mySecretKey == "" {
+		http.Error(w, "Server misconfigured: API_KEY is not set", http.StatusInternalServerError)
+		return
+	}
 	clientKey := r.Header.Get("X-API-Key")
 
 	if clientKey != mySecretKey {
